@@ -1,0 +1,506 @@
+{
+  "Milwaukee": {
+    "region": "Milwaukee",
+    "turnout": 108088,
+    "Hong": 34.76,
+    "Crowley": 48.36,
+    "Other": 16.89
+  },
+  "Waukesha": {
+    "region": "WOW",
+    "turnout": 37299,
+    "Hong": 35.42,
+    "Crowley": 32.51,
+    "Other": 32.07
+  },
+  "Ozaukee": {
+    "region": "WOW",
+    "turnout": 10173,
+    "Hong": 35.17,
+    "Crowley": 32.83,
+    "Other": 32.0
+  },
+  "Washington": {
+    "region": "WOW",
+    "turnout": 9334,
+    "Hong": 37.53,
+    "Crowley": 30.47,
+    "Other": 32.01
+  },
+  "Kenosha": {
+    "region": "Outer Milwaukee DMA",
+    "turnout": 14796,
+    "Hong": 43.97,
+    "Crowley": 31.12,
+    "Other": 24.91
+  },
+  "Racine": {
+    "region": "Outer Milwaukee DMA",
+    "turnout": 15205,
+    "Hong": 39.11,
+    "Crowley": 35.77,
+    "Other": 25.12
+  },
+  "Walworth": {
+    "region": "Outer Milwaukee DMA",
+    "turnout": 8367,
+    "Hong": 47.45,
+    "Crowley": 27.8,
+    "Other": 24.75
+  },
+  "Jefferson": {
+    "region": "Outer Milwaukee DMA",
+    "turnout": 7405,
+    "Hong": 47.0,
+    "Crowley": 28.27,
+    "Other": 24.73
+  },
+  "Dodge": {
+    "region": "Outer Milwaukee DMA",
+    "turnout": 4923,
+    "Hong": 44.57,
+    "Crowley": 30.58,
+    "Other": 24.86
+  },
+  "Sheboygan": {
+    "region": "Outer Milwaukee DMA",
+    "turnout": 9136,
+    "Hong": 42.56,
+    "Crowley": 32.32,
+    "Other": 25.12
+  },
+  "Dane": {
+    "region": "Dane",
+    "turnout": 98999,
+    "Hong": 65.72,
+    "Crowley": 15.49,
+    "Other": 18.79
+  },
+  "Columbia": {
+    "region": "Outer Madison DMA",
+    "turnout": 5932,
+    "Hong": 32.32,
+    "Crowley": 27.7,
+    "Other": 39.98
+  },
+  "Grant": {
+    "region": "Outer Madison DMA",
+    "turnout": 3941,
+    "Hong": 31.58,
+    "Crowley": 28.52,
+    "Other": 39.9
+  },
+  "Green": {
+    "region": "Outer Madison DMA",
+    "turnout": 4263,
+    "Hong": 32.57,
+    "Crowley": 27.26,
+    "Other": 40.17
+  },
+  "Iowa": {
+    "region": "Outer Madison DMA",
+    "turnout": 3137,
+    "Hong": 31.74,
+    "Crowley": 28.35,
+    "Other": 39.91
+  },
+  "Juneau": {
+    "region": "Outer Madison DMA",
+    "turnout": 1652,
+    "Hong": 30.61,
+    "Crowley": 29.82,
+    "Other": 39.57
+  },
+  "Lafayette": {
+    "region": "Outer Madison DMA",
+    "turnout": 1142,
+    "Hong": 28.19,
+    "Crowley": 32.75,
+    "Other": 39.06
+  },
+  "Marquette": {
+    "region": "Outer Madison DMA",
+    "turnout": 1001,
+    "Hong": 30.22,
+    "Crowley": 30.11,
+    "Other": 39.67
+  },
+  "Richland": {
+    "region": "Outer Madison DMA",
+    "turnout": 1628,
+    "Hong": 31.08,
+    "Crowley": 29.35,
+    "Other": 39.57
+  },
+  "Rock": {
+    "region": "Outer Madison DMA",
+    "turnout": 15628,
+    "Hong": 32.28,
+    "Crowley": 27.69,
+    "Other": 40.03
+  },
+  "Sauk": {
+    "region": "Outer Madison DMA",
+    "turnout": 7042,
+    "Hong": 32.71,
+    "Crowley": 27.18,
+    "Other": 40.11
+  },
+  "Brown": {
+    "region": "BOW",
+    "turnout": 22143,
+    "Hong": 54.99,
+    "Crowley": 20.45,
+    "Other": 24.57
+  },
+  "Outagamie": {
+    "region": "BOW",
+    "turnout": 13910,
+    "Hong": 57.68,
+    "Crowley": 19.1,
+    "Other": 23.22
+  },
+  "Winnebago": {
+    "region": "BOW",
+    "turnout": 14215,
+    "Hong": 58.78,
+    "Crowley": 18.54,
+    "Other": 22.68
+  },
+  "Calumet": {
+    "region": "Outer Green Bay DMA",
+    "turnout": 3634,
+    "Hong": 41.08,
+    "Crowley": 22.62,
+    "Other": 36.29
+  },
+  "Door": {
+    "region": "Outer Green Bay DMA",
+    "turnout": 5116,
+    "Hong": 38.74,
+    "Crowley": 24.31,
+    "Other": 36.95
+  },
+  "Fond du Lac": {
+    "region": "Outer Green Bay DMA",
+    "turnout": 5378,
+    "Hong": 41.24,
+    "Crowley": 22.51,
+    "Other": 36.25
+  },
+  "Green Lake": {
+    "region": "Outer Green Bay DMA",
+    "turnout": 1065,
+    "Hong": 40.84,
+    "Crowley": 22.64,
+    "Other": 36.52
+  },
+  "Kewaunee": {
+    "region": "Outer Green Bay DMA",
+    "turnout": 1801,
+    "Hong": 37.86,
+    "Crowley": 24.84,
+    "Other": 37.3
+  },
+  "Manitowoc": {
+    "region": "Outer Green Bay DMA",
+    "turnout": 6592,
+    "Hong": 40.48,
+    "Crowley": 22.89,
+    "Other": 36.63
+  },
+  "Marinette": {
+    "region": "Outer Green Bay DMA",
+    "turnout": 2501,
+    "Hong": 36.71,
+    "Crowley": 25.65,
+    "Other": 37.64
+  },
+  "Menominee": {
+    "region": "Outer Green Bay DMA",
+    "turnout": 144,
+    "Hong": 45.72,
+    "Crowley": 19.19,
+    "Other": 35.09
+  },
+  "Oconto": {
+    "region": "Outer Green Bay DMA",
+    "turnout": 2388,
+    "Hong": 37.08,
+    "Crowley": 25.33,
+    "Other": 37.59
+  },
+  "Shawano": {
+    "region": "Outer Green Bay DMA",
+    "turnout": 2313,
+    "Hong": 42.23,
+    "Crowley": 21.74,
+    "Other": 36.03
+  },
+  "Waupaca": {
+    "region": "Outer Green Bay DMA",
+    "turnout": 3223,
+    "Hong": 43.19,
+    "Crowley": 20.94,
+    "Other": 35.87
+  },
+  "Waushara": {
+    "region": "Outer Green Bay DMA",
+    "turnout": 1350,
+    "Hong": 40.48,
+    "Crowley": 22.93,
+    "Other": 36.59
+  },
+  "Buffalo": {
+    "region": "La Crosse-Eau Claire DMA",
+    "turnout": 969,
+    "Hong": 49.0,
+    "Crowley": 26.99,
+    "Other": 24.01
+  },
+  "Chippewa": {
+    "region": "La Crosse-Eau Claire DMA",
+    "turnout": 5257,
+    "Hong": 47.35,
+    "Crowley": 28.49,
+    "Other": 24.16
+  },
+  "Clark": {
+    "region": "La Crosse-Eau Claire DMA",
+    "turnout": 1781,
+    "Hong": 48.41,
+    "Crowley": 27.78,
+    "Other": 23.81
+  },
+  "Crawford": {
+    "region": "La Crosse-Eau Claire DMA",
+    "turnout": 1346,
+    "Hong": 49.06,
+    "Crowley": 27.09,
+    "Other": 23.85
+  },
+  "Eau Claire": {
+    "region": "La Crosse-Eau Claire DMA",
+    "turnout": 11806,
+    "Hong": 54.16,
+    "Crowley": 23.36,
+    "Other": 22.49
+  },
+  "Jackson": {
+    "region": "La Crosse-Eau Claire DMA",
+    "turnout": 1443,
+    "Hong": 49.89,
+    "Crowley": 26.46,
+    "Other": 23.65
+  },
+  "La Crosse": {
+    "region": "La Crosse-Eau Claire DMA",
+    "turnout": 12969,
+    "Hong": 53.33,
+    "Crowley": 24.04,
+    "Other": 22.63
+  },
+  "Monroe": {
+    "region": "La Crosse-Eau Claire DMA",
+    "turnout": 2735,
+    "Hong": 51.44,
+    "Crowley": 25.3,
+    "Other": 23.26
+  },
+  "Rusk": {
+    "region": "La Crosse-Eau Claire DMA",
+    "turnout": 920,
+    "Hong": 48.29,
+    "Crowley": 27.68,
+    "Other": 24.03
+  },
+  "Trempealeau": {
+    "region": "La Crosse-Eau Claire DMA",
+    "turnout": 2147,
+    "Hong": 46.41,
+    "Crowley": 29.14,
+    "Other": 24.46
+  },
+  "Vernon": {
+    "region": "La Crosse-Eau Claire DMA",
+    "turnout": 3016,
+    "Hong": 54.32,
+    "Crowley": 23.17,
+    "Other": 22.5
+  },
+  "Adams": {
+    "region": "Central & Northwoods",
+    "turnout": 1497,
+    "Hong": 39.67,
+    "Crowley": 19.53,
+    "Other": 40.8
+  },
+  "Forest": {
+    "region": "Central & Northwoods",
+    "turnout": 597,
+    "Hong": 39.4,
+    "Crowley": 19.54,
+    "Other": 41.06
+  },
+  "Langlade": {
+    "region": "Central & Northwoods",
+    "turnout": 1510,
+    "Hong": 41.49,
+    "Crowley": 18.54,
+    "Other": 39.97
+  },
+  "Lincoln": {
+    "region": "Central & Northwoods",
+    "turnout": 2526,
+    "Hong": 44.43,
+    "Crowley": 17.09,
+    "Other": 38.48
+  },
+  "Marathon": {
+    "region": "Central & Northwoods",
+    "turnout": 11900,
+    "Hong": 44.89,
+    "Crowley": 16.82,
+    "Other": 38.3
+  },
+  "Oneida": {
+    "region": "Central & Northwoods",
+    "turnout": 4180,
+    "Hong": 45.82,
+    "Crowley": 16.29,
+    "Other": 37.89
+  },
+  "Portage": {
+    "region": "Central & Northwoods",
+    "turnout": 9711,
+    "Hong": 49.15,
+    "Crowley": 14.51,
+    "Other": 36.34
+  },
+  "Price": {
+    "region": "Central & Northwoods",
+    "turnout": 1243,
+    "Hong": 47.11,
+    "Crowley": 15.53,
+    "Other": 37.35
+  },
+  "Taylor": {
+    "region": "Central & Northwoods",
+    "turnout": 1036,
+    "Hong": 45.42,
+    "Crowley": 16.41,
+    "Other": 38.17
+  },
+  "Vilas": {
+    "region": "Central & Northwoods",
+    "turnout": 2027,
+    "Hong": 45.82,
+    "Crowley": 15.04,
+    "Other": 39.15
+  },
+  "Wood": {
+    "region": "Central & Northwoods",
+    "turnout": 6110,
+    "Hong": 45.9,
+    "Crowley": 16.32,
+    "Other": 37.78
+  },
+  "Florence": {
+    "region": "Central & Northwoods",
+    "turnout": 253,
+    "Hong": 47.13,
+    "Crowley": 15.27,
+    "Other": 37.6
+  },
+  "Ashland": {
+    "region": "Duluth/MSP",
+    "turnout": 1986,
+    "Hong": 35.27,
+    "Crowley": 19.26,
+    "Other": 45.47
+  },
+  "Bayfield": {
+    "region": "Duluth/MSP",
+    "turnout": 2979,
+    "Hong": 35.25,
+    "Crowley": 19.31,
+    "Other": 45.44
+  },
+  "Douglas": {
+    "region": "Duluth/MSP",
+    "turnout": 4629,
+    "Hong": 30.67,
+    "Crowley": 23.45,
+    "Other": 45.89
+  },
+  "Iron": {
+    "region": "Duluth/MSP",
+    "turnout": 673,
+    "Hong": 30.68,
+    "Crowley": 22.97,
+    "Other": 46.35
+  },
+  "Sawyer": {
+    "region": "Duluth/MSP",
+    "turnout": 1585,
+    "Hong": 34.66,
+    "Crowley": 19.72,
+    "Other": 45.62
+  },
+  "Washburn": {
+    "region": "Duluth/MSP",
+    "turnout": 1453,
+    "Hong": 31.49,
+    "Crowley": 22.64,
+    "Other": 45.86
+  },
+  "Barron": {
+    "region": "Duluth/MSP",
+    "turnout": 3217,
+    "Hong": 29.5,
+    "Crowley": 24.67,
+    "Other": 45.83
+  },
+  "Burnett": {
+    "region": "Duluth/MSP",
+    "turnout": 1141,
+    "Hong": 27.74,
+    "Crowley": 26.24,
+    "Other": 46.02
+  },
+  "Dunn": {
+    "region": "Duluth/MSP",
+    "turnout": 3508,
+    "Hong": 35.26,
+    "Crowley": 19.23,
+    "Other": 45.51
+  },
+  "Pepin": {
+    "region": "Duluth/MSP",
+    "turnout": 514,
+    "Hong": 31.16,
+    "Crowley": 23.3,
+    "Other": 45.54
+  },
+  "Pierce": {
+    "region": "Duluth/MSP",
+    "turnout": 3702,
+    "Hong": 31.78,
+    "Crowley": 22.38,
+    "Other": 45.85
+  },
+  "Polk": {
+    "region": "Duluth/MSP",
+    "turnout": 3426,
+    "Hong": 29.33,
+    "Crowley": 24.72,
+    "Other": 45.95
+  },
+  "St. Croix": {
+    "region": "Duluth/MSP",
+    "turnout": 7826,
+    "Hong": 29.55,
+    "Crowley": 24.56,
+    "Other": 45.89
+  }
+}
