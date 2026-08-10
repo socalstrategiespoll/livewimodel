@@ -53,7 +53,7 @@ KERNEL_EVIDENCE_PRIOR = 50.0      # same idea, scaled down for the coalition-ker
 # this reflects that genuine uncertainty and shrinks toward zero as real
 # results accumulate evidence, using the same evidence-weighted shrink as
 # the shift layers above.
-PRE_ELECTION_MARGIN_SD = 14.0       # points, two-way margin; tuned so Crowley's
+PRE_ELECTION_MARGIN_SD = 9.0        # points; tuned (post per-candidate-independence rework) so Crowley's
                                     # pre-election win probability lands near 5%
 
 COUNTY_HETEROGENEITY = {
@@ -119,15 +119,39 @@ class CountyState:
     expected_turnout: int              # ORIGINAL prior turnout, never mutated
     calibrated_turnout: Optional[float] = None   # feed-implied, set once counties start reporting
     pct_reporting: float = 0.0
-    observed_margin: Optional[float] = None
     counted_votes: int = 0
     hong_votes: int = 0
     crowley_votes: int = 0
     other_votes: int = 0
+    # Observed rate for each candidate = their votes / this county's TOTAL
+    # counted votes (all-candidate denominator, not a two-way pool) -- these
+    # are the three independent observed quantities the shift layers below
+    # learn from. None until the county has any votes counted.
+    observed_hong_rate: Optional[float] = None
+    observed_crowley_rate: Optional[float] = None
+    observed_other_rate: Optional[float] = None
 
     @property
     def effective_turnout(self) -> float:
         return self.calibrated_turnout if self.calibrated_turnout is not None else self.expected_turnout
+
+    def baseline_rate(self, candidate: str) -> float:
+        return {"hong": self.baseline_hong_pct, "crowley": self.baseline_crowley_pct,
+                "other": self.baseline_other_pct}[candidate] / 100.0
+
+    def observed_rate(self, candidate: str) -> Optional[float]:
+        return {"hong": self.observed_hong_rate, "crowley": self.observed_crowley_rate,
+                "other": self.observed_other_rate}[candidate]
+
+    @property
+    def observed_margin(self) -> Optional[float]:
+        """Two-way Hong-vs-Crowley margin among counted votes -- kept as a
+        convenience/display quantity; the projection engine itself no longer
+        depends on this, it works from the three independent rates instead."""
+        two_way = self.hong_votes + self.crowley_votes
+        if two_way <= 0:
+            return None
+        return 100.0 * (self.hong_votes - self.crowley_votes) / two_way
 
     @property
     def baseline_margin(self) -> float:
@@ -154,6 +178,9 @@ class CountyState:
         return SANDERS_INDEX.get(self.name, 1.0)
 
 
+CANDIDATES = ("hong", "crowley", "other")
+
+
 class WisconsinPrimaryModel:
     def __init__(self, baseline_path: str):
         with open(baseline_path) as f:
@@ -165,11 +192,16 @@ class WisconsinPrimaryModel:
                 baseline_hong_pct=b["Hong"], baseline_crowley_pct=b["Crowley"],
                 baseline_other_pct=b["Other"], expected_turnout=b["turnout"],
             )
-        self.statewide_shift = 0.0
-        self.statewide_shift_var = TAU_FLOOR ** 2
-        self.regional_shift: Dict[str, float] = {r: 0.0 for r in REGIONS}
-        self.county_shift: Dict[str, float] = {c: 0.0 for c in self.counties}
-        self.total_evidence_weight = 0.0  # hierarchical per-county shift
+        self.total_evidence_weight = 0.0
+        # Each candidate gets its own independent statewide / regional / county
+        # shift, computed identically to the others -- no candidate's share is
+        # derived as a residual of the other two. Final shares are normalized
+        # to sum to 100% only at the projection step, not baked into the shift
+        # math itself.
+        self.statewide_shift: Dict[str, float] = {k: 0.0 for k in CANDIDATES}
+        self.statewide_shift_var: Dict[str, float] = {k: TAU_FLOOR ** 2 for k in CANDIDATES}
+        self.regional_shift: Dict[str, Dict[str, float]] = {k: {r: 0.0 for r in REGIONS} for k in CANDIDATES}
+        self.county_shift: Dict[str, Dict[str, float]] = {k: {c: 0.0 for c in self.counties} for k in CANDIDATES}
 
     # ------------------------------------------------------------
     def update_county(self, name: str, hong: int, crowley: int, other: int, pct_reporting: float):
@@ -177,9 +209,10 @@ class WisconsinPrimaryModel:
         c.hong_votes, c.crowley_votes, c.other_votes = hong, crowley, other
         c.counted_votes = hong + crowley + other
         c.pct_reporting = pct_reporting
-        two_way = hong + crowley
-        if two_way > 0:
-            c.observed_margin = 100.0 * (hong - crowley) / two_way
+        if c.counted_votes > 0:
+            c.observed_hong_rate = hong / c.counted_votes
+            c.observed_crowley_rate = crowley / c.counted_votes
+            c.observed_other_rate = other / c.counted_votes
         self._recalibrate_turnout()
         self._recompute_shifts()
 
@@ -218,94 +251,110 @@ class WisconsinPrimaryModel:
                 c.calibrated_turnout = size_weighted_median_ratio * c.expected_turnout
 
     # ------------------------------------------------------------
-    # (4) HIERARCHICAL SHIFT: universal + regional + coalition kernel
+    # (4) HIERARCHICAL SHIFT: universal + regional + coalition kernel,
+    # computed independently for EACH of the three candidates
     # ------------------------------------------------------------
+    KERNEL_BANDWIDTH = 0.12
+
     def _recompute_shifts(self):
-        reporting = [c for c in self.counties.values() if c.pct_reporting > 0 and c.observed_margin is not None]
+        reporting = [c for c in self.counties.values() if c.pct_reporting > 0 and c.counted_votes > 0]
         if not reporting:
-            self.statewide_shift = 0.0
-            self.regional_shift = {r: 0.0 for r in REGIONS}
-            self.county_shift = {c: 0.0 for c in self.counties}
             self.total_evidence_weight = 0.0
+            for k in CANDIDATES:
+                self.statewide_shift[k] = 0.0
+                self.regional_shift[k] = {r: 0.0 for r in REGIONS}
+                self.county_shift[k] = {c: 0.0 for c in self.counties}
             return
 
-        surprises, weights, regions, sanders_idx = [], [], [], []
-        for c in reporting:
-            surprise = c.observed_margin - c.baseline_margin
-            base_w = c.credibility * math.sqrt(c.effective_turnout)
-            outlier_factor = 1.0 / (1.0 + (abs(surprise) / OUTLIER_LAMBDA) ** 2)
-            w = base_w * outlier_factor
-            surprises.append(surprise)
-            weights.append(w)
-            regions.append(c.region)
-            sanders_idx.append(c.sanders_index)
+        regions = np.array([c.region for c in reporting])
+        sanders_idx = np.array([c.sanders_index for c in reporting])
+        turnouts = np.array([c.effective_turnout for c in reporting])
+        credibilities = np.array([c.credibility for c in reporting])
+        base_w = credibilities * np.sqrt(turnouts)
 
-        surprises = np.array(surprises)
-        weights = np.array(weights)
-        regions = np.array(regions)
-        sanders_idx = np.array(sanders_idx)
+        total_weight_for_evidence = 0.0
 
-        # -- universal (statewide) --
-        total_weight = weights.sum()
-        self.total_evidence_weight = float(total_weight)
-        if total_weight == 0:
-            self.statewide_shift = 0.0
-        else:
-            wmean = np.average(surprises, weights=weights)
-            tau2 = max(TAU_FLOOR ** 2, np.average((surprises - wmean) ** 2, weights=weights))
-            # global evidence floor: shrink toward zero when total accumulated
-            # weight is still thin, independent of how confident any single
-            # county's own weight looks
-            global_shrink = total_weight / (total_weight + GLOBAL_EVIDENCE_PRIOR)
-            self.statewide_shift = global_shrink * wmean
-            self.statewide_shift_var = tau2
+        for candidate in CANDIDATES:
+            surprises = np.array([
+                100.0 * (c.observed_rate(candidate) - c.baseline_rate(candidate)) for c in reporting
+            ])
+            outlier_factor = 1.0 / (1.0 + (np.abs(surprises) / OUTLIER_LAMBDA) ** 2)
+            weights = base_w * outlier_factor
+            total_weight_for_evidence = max(total_weight_for_evidence, float(weights.sum()))
 
-        # -- regional layer (unchanged from v1) --
-        for region in REGIONS:
-            idx = regions == region
-            if not idx.any():
-                self.regional_shift[region] = self.statewide_shift
-                continue
-            r_wmean = np.average(surprises[idx], weights=weights[idx]) if weights[idx].sum() > 0 else self.statewide_shift
-            shrink = weights[idx].sum() / (weights[idx].sum() + REGIONAL_EVIDENCE_PRIOR)
-            self.regional_shift[region] = shrink * r_wmean + (1 - shrink) * self.statewide_shift
-
-        # -- coalition-kernel layer: for EVERY county (reporting or not), blend
-        # in a similarity-weighted estimate from reporting counties, on top of
-        # the regional shift. Kernel = regional match bonus x coalition
-        # closeness (Gaussian in sanders_index distance). This is the GP-style
-        # "demographic kernel" term from the MI hierarchical model, simplified
-        # to the one axis we have real data for. --
-        KERNEL_BANDWIDTH = 0.12
-        for name, county in self.counties.items():
-            kernel_w = weights * np.exp(-((sanders_idx - county.sanders_index) ** 2) / (2 * KERNEL_BANDWIDTH ** 2))
-            kernel_w = kernel_w * np.where(regions == county.region, 1.5, 1.0)  # same-region bonus
-            if kernel_w.sum() <= 0:
-                local_est = self.regional_shift[county.region]
+            total_weight = weights.sum()
+            if total_weight == 0:
+                self.statewide_shift[candidate] = 0.0
             else:
-                local_est = np.average(surprises, weights=kernel_w)
-            # idiosyncratic layer: shrink toward the regional shift based on
-            # total kernel weight actually available (thin data = trust region more)
-            shrink = kernel_w.sum() / (kernel_w.sum() + KERNEL_EVIDENCE_PRIOR)
-            self.county_shift[name] = shrink * local_est + (1 - shrink) * self.regional_shift[county.region]
+                wmean = np.average(surprises, weights=weights)
+                tau2 = max(TAU_FLOOR ** 2, np.average((surprises - wmean) ** 2, weights=weights))
+                global_shrink = total_weight / (total_weight + GLOBAL_EVIDENCE_PRIOR)
+                self.statewide_shift[candidate] = global_shrink * wmean
+                self.statewide_shift_var[candidate] = tau2
+
+            for region in REGIONS:
+                idx = regions == region
+                if not idx.any():
+                    self.regional_shift[candidate][region] = self.statewide_shift[candidate]
+                    continue
+                r_wmean = (np.average(surprises[idx], weights=weights[idx])
+                           if weights[idx].sum() > 0 else self.statewide_shift[candidate])
+                shrink = weights[idx].sum() / (weights[idx].sum() + REGIONAL_EVIDENCE_PRIOR)
+                self.regional_shift[candidate][region] = (
+                    shrink * r_wmean + (1 - shrink) * self.statewide_shift[candidate])
+
+            for name, county in self.counties.items():
+                kernel_w = weights * np.exp(-((sanders_idx - county.sanders_index) ** 2) / (2 * self.KERNEL_BANDWIDTH ** 2))
+                kernel_w = kernel_w * np.where(regions == county.region, 1.5, 1.0)
+                if kernel_w.sum() <= 0:
+                    local_est = self.regional_shift[candidate][county.region]
+                else:
+                    local_est = np.average(surprises, weights=kernel_w)
+                shrink = kernel_w.sum() / (kernel_w.sum() + KERNEL_EVIDENCE_PRIOR)
+                self.county_shift[candidate][name] = (
+                    shrink * local_est + (1 - shrink) * self.regional_shift[candidate][county.region])
+
+        self.total_evidence_weight = total_weight_for_evidence
 
     # ------------------------------------------------------------
     # (3) MOMENTUM CONSTRAINT applied inside the projection
     # ------------------------------------------------------------
-    def project_county(self, c: CountyState) -> float:
+    def project_rate(self, c: CountyState, candidate: str) -> float:
+        """Projected share of the vote for one candidate in one county, as a
+        fraction of the FULL electorate (0-1). Computed independently per
+        candidate -- credibility-blended with that candidate's own
+        statewide/regional/county shift, own momentum constraint. Three of
+        these (hong/crowley/other) get normalized to sum to 1 wherever votes
+        are actually allocated -- not before."""
+        baseline_rate = c.baseline_rate(candidate)
+        shift = self.county_shift[candidate].get(c.name, 0.0) / 100.0
+        adjusted_baseline = min(max(baseline_rate + shift, 0.0), 0.97)
+
+        observed = c.observed_rate(candidate)
         if c.pct_reporting >= 0.999:
-            return c.observed_margin
+            return observed if observed is not None else adjusted_baseline
+        if observed is None:
+            return adjusted_baseline
 
-        if c.observed_margin is None:
-            return c.baseline_margin + self.county_shift[c.name]
-
-        adjusted_baseline = c.baseline_margin + self.county_shift[c.name]
         w = c.credibility
-        projected = w * c.observed_margin + (1 - w) * adjusted_baseline
+        projected = w * observed + (1 - w) * adjusted_baseline
 
         if c.pct_reporting >= MOMENTUM_TRIGGER_PCT:
-            lo, hi = c.observed_margin - MOMENTUM_MAX_DRIFT, c.observed_margin + MOMENTUM_MAX_DRIFT
+            lo = observed - MOMENTUM_MAX_DRIFT / 100.0
+            hi = observed + MOMENTUM_MAX_DRIFT / 100.0
             projected = min(max(projected, lo), hi)
+
+        return min(max(projected, 0.0), 0.97)
+
+    def project_county(self, c: CountyState) -> float:
+        """Two-way Hong-vs-Crowley margin, DERIVED from the two independent
+        projected rates -- kept for callers that still want a margin number,
+        not used internally by statewide_projection/run_simulation anymore."""
+        hong = self.project_rate(c, "hong")
+        crowley = self.project_rate(c, "crowley")
+        if hong + crowley <= 0:
+            return 0.0
+        return 100.0 * (hong - crowley) / (hong + crowley)
 
         return projected
 
@@ -314,28 +363,28 @@ class WisconsinPrimaryModel:
         total_hong = total_crowley = total_other = 0.0
         for c in self.counties.values():
             remaining_votes = max(0, c.effective_turnout - c.counted_votes)
-            proj_margin = self.project_county(c)
-            if c.counted_votes > 0 and c.pct_reporting >= 0.15:
-                other_rate = c.other_votes / c.counted_votes
-            else:
-                other_rate = c.baseline_other_pct / 100.0
-            other_rate = min(max(other_rate, 0.0), 0.85)
-            two_way_remaining = remaining_votes * (1 - other_rate)
-            hong_share = min(max(0.5 + proj_margin / 200.0, 0.0), 1.0)
-            proj_hong = two_way_remaining * hong_share
-            proj_crowley = two_way_remaining * (1 - hong_share)
-            proj_other_remaining = remaining_votes * other_rate
 
-            total_hong += c.hong_votes + proj_hong
-            total_crowley += c.crowley_votes + proj_crowley
-            total_other += c.other_votes + proj_other_remaining
+            raw_hong = self.project_rate(c, "hong")
+            raw_crowley = self.project_rate(c, "crowley")
+            raw_other = self.project_rate(c, "other")
+            raw_total = raw_hong + raw_crowley + raw_other
+            if raw_total <= 0:
+                hong_share, crowley_share, other_share = 1/3, 1/3, 1/3
+            else:
+                hong_share = raw_hong / raw_total
+                crowley_share = raw_crowley / raw_total
+                other_share = raw_other / raw_total
+
+            total_hong += c.hong_votes + remaining_votes * hong_share
+            total_crowley += c.crowley_votes + remaining_votes * crowley_share
+            total_other += c.other_votes + remaining_votes * other_share
 
         total = total_hong + total_crowley + total_other
         return {
             "Hong_pct": 100 * total_hong / total, "Crowley_pct": 100 * total_crowley / total,
             "Other_pct": 100 * total_other / total,
             "Hong_votes": total_hong, "Crowley_votes": total_crowley, "Other_votes": total_other,
-            "statewide_shift": self.statewide_shift,
+            "statewide_shift": self.statewide_shift["hong"] - self.statewide_shift["crowley"],
         }
 
     # ------------------------------------------------------------
@@ -353,71 +402,70 @@ class WisconsinPrimaryModel:
         counties = list(self.counties.values())
         n = len(counties)
 
-        point_margins = np.array([self.project_county(c) for c in counties])
         completeness = np.array([c.pct_reporting for c in counties])
         heterog = np.array([c.heterogeneity for c in counties])
         eff_turnout = np.array([c.effective_turnout for c in counties])
         counted = np.array([c.counted_votes for c in counties])
-        hong_v = np.array([c.hong_votes for c in counties], dtype=float)
-        crowley_v = np.array([c.crowley_votes for c in counties], dtype=float)
-        other_v = np.array([c.other_votes for c in counties], dtype=float)
-        other_rate = np.array([
-            (c.other_votes / c.counted_votes) if (c.counted_votes > 0 and c.pct_reporting >= 0.15)
-            else c.baseline_other_pct / 100.0
-            for c in counties
-        ])
-        other_rate = np.clip(other_rate, 0.0, 0.85)
+        remaining_votes = np.maximum(0, eff_turnout - counted)
 
         # per-county remainder SD: base uncertainty shrinking with completeness,
-        # inflated for heterogeneous counties while thin
+        # inflated for heterogeneous counties while thin -- same for every
+        # candidate, since it's about how much a partially-reported county's
+        # remainder can still move, not about any one candidate specifically
         base_sd = 8.0
         county_sd = base_sd * (1 - completeness) ** 0.5 + heterog * (1 - completeness) * 0.3
         county_sd = np.maximum(county_sd, 0.5)
 
-        statewide_sd = math.sqrt(self.statewide_shift_var) * 15.0  # scale variance (in shift-units) to margin points
-
-        # Pre-election uncertainty about the topline, shrinking as real evidence
-        # accumulates (same evidence-weighted shrink used for the shift layers).
-        # Without this, per-county noise mostly diversifies away across 72
-        # counties and the model reports near-certainty before a single vote is
-        # counted -- which overstates confidence in baselines built from limited
-        # polling and a 2016 coalition proxy, not certainty.
         evidence_shrink = self.total_evidence_weight / (self.total_evidence_weight + GLOBAL_EVIDENCE_PRIOR)
-        prior_sd = PRE_ELECTION_MARGIN_SD * (1 - evidence_shrink)
-        statewide_sd = math.sqrt(statewide_sd ** 2 + prior_sd ** 2)
+        # Margin SD of ~14 requires each of two independent candidate noise
+        # sources to contribute ~14/sqrt(2), since Var(hong-crowley) =
+        # Var(hong) + Var(crowley) for independent noise. Applied identically
+        # to all three candidates for genuine independence.
+        prior_sd = (PRE_ELECTION_MARGIN_SD / 1.414) * (1 - evidence_shrink)
 
-        remaining_votes = np.maximum(0, eff_turnout - counted)
-        two_way_remaining = remaining_votes * (1 - other_rate)
-        other_remaining = remaining_votes * other_rate
-        other_total_fixed = float((other_v + other_remaining).sum())
+        sim_votes = {}
+        for candidate, actual_v in (("hong", "hong_votes"), ("crowley", "crowley_votes"), ("other", "other_votes")):
+            point_rate = np.array([self.project_rate(c, candidate) for c in counties])
+            statewide_sd = math.sqrt(self.statewide_shift_var[candidate]) * 15.0
+            statewide_sd = math.sqrt(statewide_sd ** 2 + prior_sd ** 2)
 
-        # momentum bounds, precomputed once (n,)
-        momentum_active = np.array([
-            c.pct_reporting >= MOMENTUM_TRIGGER_PCT and c.observed_margin is not None for c in counties
-        ])
-        obs_margin_arr = np.array([c.observed_margin if c.observed_margin is not None else 0.0 for c in counties])
-        lo_bound = obs_margin_arr - MOMENTUM_MAX_DRIFT
-        hi_bound = obs_margin_arr + MOMENTUM_MAX_DRIFT
+            momentum_active = np.array([
+                c.pct_reporting >= MOMENTUM_TRIGGER_PCT and c.observed_rate(candidate) is not None
+                for c in counties
+            ])
+            obs_arr = np.array([
+                (c.observed_rate(candidate) if c.observed_rate(candidate) is not None else 0.0)
+                for c in counties
+            ])
+            lo_bound = obs_arr - MOMENTUM_MAX_DRIFT / 100.0
+            hi_bound = obs_arr + MOMENTUM_MAX_DRIFT / 100.0
 
-        # fully vectorized: (n_sims, n_counties) draws in one shot
-        shared_shock = rng.normal(0, statewide_sd, size=(n_sims, 1))          # broadcasts across counties
-        county_shock = rng.normal(0, 1, size=(n_sims, n)) * county_sd[None, :]
-        sim_margin = point_margins[None, :] + shared_shock + county_shock     # (n_sims, n)
+            shared_shock = rng.normal(0, statewide_sd, size=(n_sims, 1)) / 100.0
+            county_shock = rng.normal(0, 1, size=(n_sims, n)) * (county_sd[None, :] / 100.0)
+            sim_rate = point_rate[None, :] + shared_shock + county_shock
 
-        clipped = np.clip(sim_margin, lo_bound[None, :], hi_bound[None, :])
-        sim_margin = np.where(momentum_active[None, :], clipped, sim_margin)
+            clipped = np.clip(sim_rate, lo_bound[None, :], hi_bound[None, :])
+            sim_rate = np.where(momentum_active[None, :], clipped, sim_rate)
+            sim_rate = np.clip(sim_rate, 0.0, 0.97)
 
-        hong_share = np.clip(0.5 + sim_margin / 200.0, 0.0, 1.0)              # (n_sims, n)
-        sim_hong = hong_v[None, :] + two_way_remaining[None, :] * hong_share
-        sim_crowley = crowley_v[None, :] + two_way_remaining[None, :] * (1 - hong_share)
+            sim_votes[candidate] = sim_rate
+            sim_votes[candidate + "_actual"] = np.array([getattr(c, actual_v) for c in counties], dtype=float)
 
-        hong_totals = sim_hong.sum(axis=1)
-        crowley_totals = sim_crowley.sum(axis=1)
-        grand_totals = hong_totals + crowley_totals + other_total_fixed
+        # normalize the three independently-noised rates to sum to 1 per
+        # simulation per county, THEN allocate the remaining vote
+        raw_total = sim_votes["hong"] + sim_votes["crowley"] + sim_votes["other"]
+        raw_total = np.maximum(raw_total, 1e-9)
+        hong_share = sim_votes["hong"] / raw_total
+        crowley_share = sim_votes["crowley"] / raw_total
+        other_share = sim_votes["other"] / raw_total
+
+        hong_totals = (sim_votes["hong_actual"][None, :] + remaining_votes[None, :] * hong_share).sum(axis=1)
+        crowley_totals = (sim_votes["crowley_actual"][None, :] + remaining_votes[None, :] * crowley_share).sum(axis=1)
+        other_totals = (sim_votes["other_actual"][None, :] + remaining_votes[None, :] * other_share).sum(axis=1)
+
+        grand_totals = hong_totals + crowley_totals + other_totals
         # Margin as share of the FULL electorate (all candidates in the
-        # denominator), not normalized to just the Hong/Crowley two-way pool --
-        # per Wilson: the number should reflect all candidates being in the
-        # race, while still just showing Hong minus Crowley.
+        # denominator), not normalized to just the Hong/Crowley two-way pool.
         results = 100 * hong_totals / grand_totals - 100 * crowley_totals / grand_totals
 
         return {
