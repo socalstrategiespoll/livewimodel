@@ -13,6 +13,7 @@
   --hong-soft:    #A8C6C3;
   --crowley:         #96701A;
   --crowley-soft:    #D8C48E;
+  --other:      #8B9088;
   --band-90:    #CDD3CA;
   --band-50:    #B2BCB2;
   --flag:       #8A3B24;
@@ -243,6 +244,7 @@ section + section { margin-top: 2.25rem; }
 .tally-head { margin-bottom: 0.4rem; font-size: 0.85rem; }
 .tally-name.hong { color: var(--hong); }
 .tally-name.crowley { color: var(--crowley); }
+.tally-name.other { color: var(--other); }
 
 .tally-bar {
   display: flex;
@@ -253,10 +255,11 @@ section + section { margin-top: 2.25rem; }
 
 .tally-hong { background: var(--hong); }
 .tally-crowley { background: var(--crowley); }
-.tally-hong, .tally-crowley { transition: width 700ms cubic-bezier(0.4, 0, 0.2, 1); }
+.tally-other { background: var(--other); }
+.tally-hong, .tally-crowley, .tally-other { transition: width 700ms cubic-bezier(0.4, 0, 0.2, 1); }
 
 .tally-foot { margin-top: 0.35rem; color: var(--ink-soft); }
-.tally-other { color: var(--ink-soft); }
+#other-note { font-size: 0.72rem; }
 
 /* ---------- panels ---------- */
 
