@@ -160,10 +160,23 @@ function albers() {
 
 function buildPaths(geo) {
   const project = albers();
-  const projected = geo.features.map((f) => ({
-    name: f.properties.name,
-    polys: f.geometry.coordinates.map((poly) => poly.map((r) => r.map(project))),
-  }));
+  const projected = geo.features.map((f) => {
+    // GeoJSON Polygon vs MultiPolygon have different nesting: Polygon's
+    // coordinates are directly [ring, ring, ...], MultiPolygon's are
+    // [[ring, ring, ...], [ring, ...], ...] (one extra level, one per
+    // disconnected landmass). Wisconsin's county file is a mix -- 69 plain
+    // Polygon counties, 3 MultiPolygon (island counties like Bayfield with
+    // the Apostle Islands) -- so both must be normalized to the same shape
+    // before rendering, or the first Polygon county throws and the whole
+    // map silently disappears.
+    const polys = f.geometry.type === "Polygon"
+      ? [f.geometry.coordinates]
+      : f.geometry.coordinates;
+    return {
+      name: f.properties.name,
+      polys: polys.map((poly) => poly.map((r) => r.map(project))),
+    };
+  });
 
   let minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity;
   projected.forEach((f) => f.polys.forEach((poly) => poly.forEach((r) => r.forEach(([x, y]) => {
