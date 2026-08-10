@@ -46,6 +46,16 @@ GLOBAL_EVIDENCE_PRIOR = 500.0     # ~1.5 large fully-reported counties' worth of
 REGIONAL_EVIDENCE_PRIOR = 50.0    # same idea, scaled down for a single-region pool
 KERNEL_EVIDENCE_PRIOR = 50.0      # same idea, scaled down for the coalition-kernel pool
 
+# Pre-election uncertainty about the TOPLINE itself (not the same thing as
+# statewide_shift_var, which measures heterogeneity in observed county
+# surprises and is near-zero pre-election by construction). The baselines
+# come from limited polling plus a 2016 coalition proxy, not certainty --
+# this reflects that genuine uncertainty and shrinks toward zero as real
+# results accumulate evidence, using the same evidence-weighted shrink as
+# the shift layers above.
+PRE_ELECTION_MARGIN_SD = 14.0       # points, two-way margin; tuned so Crowley's
+                                    # pre-election win probability lands near 5%
+
 COUNTY_HETEROGENEITY = {
     "Milwaukee": 12.0,
     "Dane": 8.0,
@@ -158,7 +168,8 @@ class WisconsinPrimaryModel:
         self.statewide_shift = 0.0
         self.statewide_shift_var = TAU_FLOOR ** 2
         self.regional_shift: Dict[str, float] = {r: 0.0 for r in REGIONS}
-        self.county_shift: Dict[str, float] = {c: 0.0 for c in self.counties}  # hierarchical per-county shift
+        self.county_shift: Dict[str, float] = {c: 0.0 for c in self.counties}
+        self.total_evidence_weight = 0.0  # hierarchical per-county shift
 
     # ------------------------------------------------------------
     def update_county(self, name: str, hong: int, crowley: int, other: int, pct_reporting: float):
@@ -215,6 +226,7 @@ class WisconsinPrimaryModel:
             self.statewide_shift = 0.0
             self.regional_shift = {r: 0.0 for r in REGIONS}
             self.county_shift = {c: 0.0 for c in self.counties}
+            self.total_evidence_weight = 0.0
             return
 
         surprises, weights, regions, sanders_idx = [], [], [], []
@@ -235,6 +247,7 @@ class WisconsinPrimaryModel:
 
         # -- universal (statewide) --
         total_weight = weights.sum()
+        self.total_evidence_weight = float(total_weight)
         if total_weight == 0:
             self.statewide_shift = 0.0
         else:
@@ -363,6 +376,16 @@ class WisconsinPrimaryModel:
 
         statewide_sd = math.sqrt(self.statewide_shift_var) * 15.0  # scale variance (in shift-units) to margin points
 
+        # Pre-election uncertainty about the topline, shrinking as real evidence
+        # accumulates (same evidence-weighted shrink used for the shift layers).
+        # Without this, per-county noise mostly diversifies away across 72
+        # counties and the model reports near-certainty before a single vote is
+        # counted -- which overstates confidence in baselines built from limited
+        # polling and a 2016 coalition proxy, not certainty.
+        evidence_shrink = self.total_evidence_weight / (self.total_evidence_weight + GLOBAL_EVIDENCE_PRIOR)
+        prior_sd = PRE_ELECTION_MARGIN_SD * (1 - evidence_shrink)
+        statewide_sd = math.sqrt(statewide_sd ** 2 + prior_sd ** 2)
+
         remaining_votes = np.maximum(0, eff_turnout - counted)
         two_way_remaining = remaining_votes * (1 - other_rate)
         other_remaining = remaining_votes * other_rate
@@ -390,8 +413,11 @@ class WisconsinPrimaryModel:
 
         hong_totals = sim_hong.sum(axis=1)
         crowley_totals = sim_crowley.sum(axis=1)
-        grand_totals = hong_totals + crowley_totals + other_total_fixed
-        results = 100 * hong_totals / grand_totals - 100 * crowley_totals / grand_totals
+        # TWO-WAY margin (Hong vs. Crowley only), matching the convention used
+        # everywhere else in the model (project_county, the county table). NOT
+        # diluted by Other's share -- that would understate Hong's actual lead
+        # over Crowley specifically, and was a real bug in the previous version.
+        results = 100 * (hong_totals - crowley_totals) / (hong_totals + crowley_totals)
 
         return {
             "mean_margin": float(np.mean(results)),
