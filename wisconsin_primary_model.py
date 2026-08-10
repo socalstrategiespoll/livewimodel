@@ -413,11 +413,12 @@ class WisconsinPrimaryModel:
 
         hong_totals = sim_hong.sum(axis=1)
         crowley_totals = sim_crowley.sum(axis=1)
-        # TWO-WAY margin (Hong vs. Crowley only), matching the convention used
-        # everywhere else in the model (project_county, the county table). NOT
-        # diluted by Other's share -- that would understate Hong's actual lead
-        # over Crowley specifically, and was a real bug in the previous version.
-        results = 100 * (hong_totals - crowley_totals) / (hong_totals + crowley_totals)
+        grand_totals = hong_totals + crowley_totals + other_total_fixed
+        # Margin as share of the FULL electorate (all candidates in the
+        # denominator), not normalized to just the Hong/Crowley two-way pool --
+        # per Wilson: the number should reflect all candidates being in the
+        # race, while still just showing Hong minus Crowley.
+        results = 100 * hong_totals / grand_totals - 100 * crowley_totals / grand_totals
 
         return {
             "mean_margin": float(np.mean(results)),
