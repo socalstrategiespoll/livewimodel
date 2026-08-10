@@ -150,15 +150,33 @@ def build_output(model: WisconsinPrimaryModel, sim: dict, proj: dict,
 
 def build_county_table(model: WisconsinPrimaryModel) -> list:
     """Per-county rows covering ALL 72 counties, not just the ones reporting --
-    the maps need every county every cycle."""
+    the maps need every county every cycle.
+
+    Margins here use the same all-candidate-denominator convention as the
+    statewide headline (Hong minus Crowley, as a share of the full electorate
+    including Other) -- not a two-candidate-only normalization. The internal
+    deductive math (project_county) still operates on two-way margins, since
+    that's what's needed to split projected remainder ballots between Hong
+    and Crowley specifically; this function converts that internal number to
+    the all-candidate display convention before it's shown."""
     rows = []
     for name, c in model.counties.items():
         counted = c.hong_votes + c.crowley_votes
+        total_counted = c.counted_votes
         margin = None
-        if counted > 0:
-            margin = round(100.0 * (c.hong_votes - c.crowley_votes) / counted, 1)
+        if total_counted > 0:
+            margin = round(100.0 * (c.hong_votes - c.crowley_votes) / total_counted, 1)
 
-        proj_margin = model.project_county(c)
+        two_way_proj_margin = model.project_county(c)
+        # convert two-way projected margin to the all-candidate convention using
+        # this county's own Other rate (observed if reporting, else baseline)
+        if c.counted_votes > 0 and c.pct_reporting >= 0.15:
+            other_rate = c.other_votes / c.counted_votes
+        else:
+            other_rate = c.baseline_other_pct / 100.0
+        other_rate = min(max(other_rate, 0.0), 0.85)
+        display_proj_margin = two_way_proj_margin * (1 - other_rate)
+
         remaining = max(0, c.effective_turnout - c.counted_votes)
 
         rows.append({
@@ -170,16 +188,17 @@ def build_county_table(model: WisconsinPrimaryModel) -> list:
             "other": c.other_votes,
             "votes": c.counted_votes,
             "margin": margin,
-            "expected_baseline": round(c.baseline_margin, 1),
-            "vs_expected": None if margin is None else round(margin - c.baseline_margin, 1),
+            "expected_baseline": round(c.baseline_margin * (1 - c.baseline_other_pct / 100.0), 1),
+            "vs_expected": None if margin is None else round(
+                margin - c.baseline_margin * (1 - c.baseline_other_pct / 100.0), 1),
             "county_shift": round(model.county_shift.get(name, 0.0), 1),
             "pct_precincts": c.pct_reporting * 100 if c.pct_reporting else None,
             "pct_of_projected": round(100 * c.counted_votes / max(c.effective_turnout, 1), 1),
             "projected_total": int(c.effective_turnout),
             "calibrated_turnout": int(c.calibrated_turnout) if c.calibrated_turnout else None,
             "remaining": int(round(remaining)),
-            "remainder_margin": round(proj_margin, 1),
-            "projected_final": round(proj_margin, 1) if c.pct_reporting >= 0.999 else round(proj_margin, 1),
+            "remainder_margin": round(display_proj_margin, 1),
+            "projected_final": round(display_proj_margin, 1),
         })
 
     rows.sort(key=lambda r: (-r["votes"], -r["projected_total"]))
