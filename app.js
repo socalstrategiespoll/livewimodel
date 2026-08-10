@@ -218,7 +218,7 @@ function mapValue(row, mode) {
 
 async function loadGeo() {
   try {
-    const res = await fetch("wi-counties.geojson");
+    const res = await fetch("wi-counties.geojson", { cache: "no-store" });
     GEO = await res.json();
     PATHS = buildPaths(GEO);
     MAPS.forEach(buildOne);
@@ -504,17 +504,17 @@ function render(data) {
 
   $("turnout").textContent = t.projected ? num.format(t.projected) : "—";
 
-  const total = (c.hong || 0) + (c.crowley || 0);
-  const hongShare = total ? (c.hong / total) * 100 : 50;
+  const hongShare = p.hong_pct;
+  const crowleyShare = p.crowley_pct;
+  const otherShare = p.other_pct;
   $("hong-votes").textContent = num.format(c.hong || 0);
   $("crowley-votes").textContent = num.format(c.crowley || 0);
+  $("other-pct-label").textContent = otherShare.toFixed(1) + "%";
   $("tally-hong").style.width = hongShare + "%";
-  $("tally-crowley").style.width = (100 - hongShare) + "%";
+  $("tally-other-bar").style.width = otherShare + "%";
+  $("tally-crowley").style.width = crowleyShare + "%";
   $("hong-pct").textContent = hongShare.toFixed(1) + "%";
-  $("crowley-pct").textContent = (100 - hongShare).toFixed(1) + "%";
-  $("other-votes").textContent = c.other
-    ? `${num.format(c.other)} to the rest of the field, excluded from the margin`
-    : "";
+  $("crowley-pct").textContent = crowleyShare.toFixed(1) + "%";
 
   LAST_COUNTIES = data.counties || [];
   renderCounties(data.counties);
