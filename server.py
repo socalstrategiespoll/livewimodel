@@ -140,11 +140,20 @@ def build_output(model: WisconsinPrimaryModel, sim: dict, proj: dict,
         "counties": build_county_table(model),
         "diagnostics": {
             "counties_reporting": sum(1 for c in model.counties.values() if c.pct_reporting > 0),
-            "statewide_shift": round(model.statewide_shift, 2),
+            # Statewide shift is now tracked independently per candidate; this
+            # summary number is Hong's shift minus Crowley's, matching the old
+            # single-margin-shift meaning for anything still reading it as one number.
+            "statewide_shift": round(model.statewide_shift["hong"] - model.statewide_shift["crowley"], 2),
+            "statewide_shift_by_candidate": {k: round(v, 2) for k, v in model.statewide_shift.items()},
             "unmatched_counties": parsed.get("unmatched", []),
             "candidate_names": parsed.get("candidate_names"),
         },
-        "regional_shift": {k: round(v, 2) for k, v in model.regional_shift.items()},
+        # Regional swing shown on the dashboard: Hong's regional shift minus
+        # Crowley's, same summary convention as statewide_shift above.
+        "regional_shift": {
+            region: round(model.regional_shift["hong"][region] - model.regional_shift["crowley"][region], 2)
+            for region in model.regional_shift["hong"]
+        },
     }
 
 
@@ -169,12 +178,9 @@ def build_county_table(model: WisconsinPrimaryModel) -> list:
 
         two_way_proj_margin = model.project_county(c)
         # convert two-way projected margin to the all-candidate convention using
-        # this county's own Other rate (observed if reporting, else baseline)
-        if c.counted_votes > 0 and c.pct_reporting >= 0.15:
-            other_rate = c.other_votes / c.counted_votes
-        else:
-            other_rate = c.baseline_other_pct / 100.0
-        other_rate = min(max(other_rate, 0.0), 0.85)
+        # this county's projected Other rate (credibility-blended with the
+        # statewide/regional/county Other-shift, not just this county's own data)
+        other_rate = model.project_rate(c, "other")
         display_proj_margin = two_way_proj_margin * (1 - other_rate)
 
         remaining = max(0, c.effective_turnout - c.counted_votes)
@@ -191,7 +197,8 @@ def build_county_table(model: WisconsinPrimaryModel) -> list:
             "expected_baseline": round(c.baseline_margin * (1 - c.baseline_other_pct / 100.0), 1),
             "vs_expected": None if margin is None else round(
                 margin - c.baseline_margin * (1 - c.baseline_other_pct / 100.0), 1),
-            "county_shift": round(model.county_shift.get(name, 0.0), 1),
+            "county_shift": round(
+                model.county_shift["hong"].get(name, 0.0) - model.county_shift["crowley"].get(name, 0.0), 1),
             "pct_precincts": c.pct_reporting * 100 if c.pct_reporting else None,
             "pct_of_projected": round(100 * c.counted_votes / max(c.effective_turnout, 1), 1),
             "projected_total": int(c.effective_turnout),
