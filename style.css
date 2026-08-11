@@ -361,6 +361,49 @@ table.counties .empty td { color: var(--ink-soft); text-align: center; padding: 
   font-variant-numeric: tabular-nums;
 }
 
+.range-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+}
+
+.range-cell {
+  background: var(--paper-2);
+  padding: 0.8rem 1rem;
+}
+
+.range-name {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.range-name.hong { color: var(--hong); }
+.range-name.crowley { color: var(--crowley); }
+.range-name.other { color: var(--other); }
+
+.range-median {
+  font-family: "Anton", sans-serif;
+  font-size: 1.6rem;
+  line-height: 1.2;
+  margin-top: 0.1rem;
+}
+
+.range-bands {
+  margin-top: 0.35rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.74rem;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+@media (max-width: 860px) {
+  .range-grid { grid-template-columns: 1fr; }
+}
+
 footer {
   margin-top: 3rem;
   padding-top: 1rem;
