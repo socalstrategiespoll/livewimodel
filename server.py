@@ -136,6 +136,18 @@ def build_output(model: WisconsinPrimaryModel, sim: dict, proj: dict,
                 round(float(v), 2) for v in
                 np.percentile(sim["margins"], np.arange(1, 100, 1.65))
             ],
+            # Each candidate's OWN simulated statewide vote-share range, not
+            # just the Hong-vs-Crowley margin -- e.g. Other's range is wide
+            # because it's a 4-candidate aggregate with no direct polling on
+            # the bucket itself; see OTHER_PRE_ELECTION_SD in the model file.
+            "share_ranges": {
+                cand: {
+                    "median": round(r["p50"], 2),
+                    "range_50": [round(r["p25"], 2), round(r["p75"], 2)],
+                    "range_90": [round(r["p05"], 2), round(r["p95"], 2)],
+                }
+                for cand, r in sim["candidate_share_ranges"].items()
+            },
         },
         "counties": build_county_table(model),
         "diagnostics": {
