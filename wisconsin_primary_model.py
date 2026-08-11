@@ -55,6 +55,11 @@ KERNEL_EVIDENCE_PRIOR = 50.0      # same idea, scaled down for the coalition-ker
 # the shift layers above.
 PRE_ELECTION_MARGIN_SD = 9.0        # points; tuned (post per-candidate-independence rework) so Crowley's
                                     # pre-election win probability lands near 5%
+OTHER_PRE_ELECTION_SD = 9.0         # points; SEPARATE knob from the above -- Other is an aggregate of
+                                    # 4 different candidates with no direct polling on the bucket itself,
+                                    # so this may need widening independently of the Hong/Crowley figure.
+                                    # Starting at the same magnitude as PRE_ELECTION_MARGIN_SD; adjust
+                                    # this one alone if Other's range looks too tight or too wide.
 
 COUNTY_HETEROGENEITY = {
     "Milwaukee": 12.0,
@@ -417,17 +422,26 @@ class WisconsinPrimaryModel:
         county_sd = np.maximum(county_sd, 0.5)
 
         evidence_shrink = self.total_evidence_weight / (self.total_evidence_weight + GLOBAL_EVIDENCE_PRIOR)
-        # Margin SD of ~14 requires each of two independent candidate noise
-        # sources to contribute ~14/sqrt(2), since Var(hong-crowley) =
-        # Var(hong) + Var(crowley) for independent noise. Applied identically
-        # to all three candidates for genuine independence.
-        prior_sd = (PRE_ELECTION_MARGIN_SD / 1.414) * (1 - evidence_shrink)
+        # Margin SD of ~PRE_ELECTION_MARGIN_SD requires each of Hong/Crowley's
+        # independent noise sources to contribute ~SD/sqrt(2), since
+        # Var(hong-crowley) = Var(hong) + Var(crowley) for independent noise.
+        # Other gets its OWN separately-tunable prior (OTHER_PRE_ELECTION_SD)
+        # rather than reusing the Hong/Crowley figure -- per Wilson, there's
+        # real uncertainty in how big Other's bucket actually runs (it's an
+        # aggregate of 4 different candidates, no direct polling on the
+        # aggregate itself) and this may need independent widening later
+        # without disturbing the Hong-vs-Crowley calibration.
+        prior_sd = {
+            "hong": (PRE_ELECTION_MARGIN_SD / 1.414) * (1 - evidence_shrink),
+            "crowley": (PRE_ELECTION_MARGIN_SD / 1.414) * (1 - evidence_shrink),
+            "other": OTHER_PRE_ELECTION_SD * (1 - evidence_shrink),
+        }
 
         sim_votes = {}
         for candidate, actual_v in (("hong", "hong_votes"), ("crowley", "crowley_votes"), ("other", "other_votes")):
             point_rate = np.array([self.project_rate(c, candidate) for c in counties])
             statewide_sd = math.sqrt(self.statewide_shift_var[candidate]) * 15.0
-            statewide_sd = math.sqrt(statewide_sd ** 2 + prior_sd ** 2)
+            statewide_sd = math.sqrt(statewide_sd ** 2 + prior_sd[candidate] ** 2)
 
             momentum_active = np.array([
                 c.pct_reporting >= MOMENTUM_TRIGGER_PCT and c.observed_rate(candidate) is not None
@@ -468,6 +482,20 @@ class WisconsinPrimaryModel:
         # denominator), not normalized to just the Hong/Crowley two-way pool.
         results = 100 * hong_totals / grand_totals - 100 * crowley_totals / grand_totals
 
+        # Per-candidate simulated statewide VOTE SHARE (not margin) -- each
+        # candidate's own distribution across the n_sims draws, for the
+        # 50%/90% range display Wilson asked for.
+        hong_pct_sims = 100 * hong_totals / grand_totals
+        crowley_pct_sims = 100 * crowley_totals / grand_totals
+        other_pct_sims = 100 * other_totals / grand_totals
+
+        def pct_range(arr):
+            return {
+                "p05": float(np.percentile(arr, 5)), "p25": float(np.percentile(arr, 25)),
+                "p50": float(np.percentile(arr, 50)),
+                "p75": float(np.percentile(arr, 75)), "p95": float(np.percentile(arr, 95)),
+            }
+
         return {
             "mean_margin": float(np.mean(results)),
             "p05": float(np.percentile(results, 5)),
@@ -479,4 +507,9 @@ class WisconsinPrimaryModel:
             "crowley_win_prob": float(np.mean(results < 0)),
             "n_sims": n_sims,
             "margins": results,  # raw array -- server thins this into percentiles for the site's density curve
+            "candidate_share_ranges": {
+                "hong": pct_range(hong_pct_sims),
+                "crowley": pct_range(crowley_pct_sims),
+                "other": pct_range(other_pct_sims),
+            },
         }
