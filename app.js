@@ -486,6 +486,24 @@ function renderRegions(shifts) {
   }).join("");
 }
 
+function renderShareRanges(shareRanges) {
+  const grid = $("range-grid");
+  if (!shareRanges) { grid.innerHTML = ""; return; }
+  const order = [["hong", "Hong"], ["crowley", "Crowley"], ["other", "Other"]];
+  grid.innerHTML = order.map(([key, label]) => {
+    const r = shareRanges[key];
+    if (!r) return "";
+    return `<div class="range-cell">
+      <div class="range-name ${key}">${label}</div>
+      <div class="range-median ${key}">${r.median.toFixed(1)}%</div>
+      <div class="range-bands">
+        50%: ${r.range_50[0].toFixed(1)}–${r.range_50[1].toFixed(1)}<br>
+        90%: ${r.range_90[0].toFixed(1)}–${r.range_90[1].toFixed(1)}
+      </div>
+    </div>`;
+  }).join("");
+}
+
 function render(data) {
   const p = data.projection;
   const c = data.counted;
@@ -508,6 +526,9 @@ function render(data) {
 
   drawDistribution(p);
 
+  $("range-90").textContent = `${signed(p.interval_90[0])} to ${signed(p.interval_90[1])}`;
+  $("range-50").textContent = `${signed(p.interval_50[0])} to ${signed(p.interval_50[1])}`;
+
   $("win-prob").textContent = (prob * 100).toFixed(prob > 0.995 ? 1 : 0) + "%";
   $("win-note").textContent = `${leader} wins in ${(prob * 100).toFixed(1)}% of simulations`;
 
@@ -516,6 +537,8 @@ function render(data) {
     c.pct_precincts_reporting == null ? "—" : c.pct_precincts_reporting + "%";
 
   $("turnout").textContent = t.projected ? num.format(t.projected) : "—";
+
+  renderShareRanges(p.share_ranges);
 
   const hongShare = p.hong_pct;
   const crowleyShare = p.crowley_pct;
