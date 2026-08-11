@@ -52,8 +52,8 @@
       </svg>
       <figcaption class="dist-axis" id="dist-axis"></figcaption>
       <figcaption class="dist-key">
-        <span><i class="swatch band-90"></i>90% of simulations</span>
-        <span><i class="swatch band-50"></i>50%</span>
+        <span><i class="swatch band-90"></i>Middle 90%: <b id="range-90">—</b></span>
+        <span><i class="swatch band-50"></i>Middle 50%: <b id="range-50">—</b></span>
         <span><i class="swatch tick-zero"></i>tie</span>
       </figcaption>
     </figure>
@@ -93,6 +93,16 @@
       <span id="other-note">Projected shares (counted + modeled remainder), not raw votes counted so far</span>
       <span id="crowley-pct">—</span>
     </div>
+  </section>
+
+  <section class="ranges">
+    <p class="panel-note">
+      Each candidate's own simulated range for their FINAL statewide vote share
+      (not the margin between them). Other's range runs wide because it's an
+      aggregate of the rest of the field with no direct polling on the bucket
+      itself.
+    </p>
+    <div class="range-grid" id="range-grid"></div>
   </section>
 
 
