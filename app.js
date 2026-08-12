@@ -27,25 +27,66 @@ const W = 720;
 const H = 200;
 const PAD = 8;
 
-function density(percentiles, bins = 48) {
+function density(percentiles, bins = 90) {
   const lo = percentiles[0];
   const hi = percentiles[percentiles.length - 1];
   const span = hi - lo || 1;
-  const counts = new Array(bins).fill(0);
 
-  percentiles.forEach((v) => {
-    const i = Math.min(bins - 1, Math.floor(((v - lo) / span) * bins));
-    counts[i] += 1;
+  // The input is already a percentile array (evenly spaced in PROBABILITY,
+  // not raw samples), so a naive histogram double-bins it -- spikes appear
+  // wherever percentiles happen to cluster tightly in a given bin, and the
+  // sparse tails create jagged edge noise. Instead, compute density directly
+  // as the derivative of the percentile function: how much probability mass
+  // sits between each pair of consecutive percentile points, divided by how
+  // far apart those points are in value. This is smooth by construction.
+  const n = percentiles.length;
+  const stepProb = 100 / (n - 1);
+  const midX = [];
+  const rawDensity = [];
+  for (let i = 0; i < n - 1; i++) {
+    const dv = Math.max(percentiles[i + 1] - percentiles[i], 1e-6);
+    midX.push((percentiles[i] + percentiles[i + 1]) / 2);
+    rawDensity.push(stepProb / dv);
+  }
+
+  // Interpolate onto an evenly-spaced value grid
+  const grid = new Array(bins).fill(0);
+  for (let b = 0; b < bins; b++) {
+    const x = lo + (span * (b + 0.5)) / bins;
+    // find bracketing midX pair
+    let j = 0;
+    while (j < midX.length - 1 && midX[j + 1] < x) j++;
+    if (x <= midX[0]) grid[b] = rawDensity[0];
+    else if (x >= midX[midX.length - 1]) grid[b] = rawDensity[rawDensity.length - 1];
+    else {
+      const x0 = midX[j], x1 = midX[j + 1];
+      const t = (x - x0) / Math.max(x1 - x0, 1e-9);
+      grid[b] = rawDensity[j] * (1 - t) + rawDensity[j + 1] * t;
+    }
+  }
+
+  // Wide smoothing kernel (9-point weighted) to remove residual noise
+  const kernel = [1, 2, 3, 4, 5, 4, 3, 2, 1];
+  const kSum = kernel.reduce((a, b) => a + b, 0);
+  const smooth = grid.map((_, i) => {
+    let sum = 0;
+    for (let k = 0; k < kernel.length; k++) {
+      const idx = Math.min(grid.length - 1, Math.max(0, i + k - 4));
+      sum += grid[idx] * kernel[k];
+    }
+    return sum / kSum;
   });
 
-  const smooth = counts.map((_, i) => {
-    const a = counts[i - 1] ?? counts[i];
-    const b = counts[i];
-    const c = counts[i + 1] ?? counts[i];
-    return (a + 2 * b + c) / 4;
-  });
+  // Taper the outer few bins toward zero smoothly, so the curve settles
+  // rather than ending on a noisy edge bump
+  const taper = Math.max(3, Math.round(bins * 0.04));
+  for (let i = 0; i < taper; i++) {
+    const f = (i + 1) / (taper + 1);
+    smooth[i] *= f;
+    smooth[smooth.length - 1 - i] *= f;
+  }
 
-  const peak = Math.max(...smooth, 1);
+  const peak = Math.max(...smooth, 1e-9);
   return { lo, hi, span, values: smooth.map((v) => v / peak) };
 }
 

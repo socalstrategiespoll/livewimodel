@@ -134,7 +134,7 @@ def build_output(model: WisconsinPrimaryModel, sim: dict, proj: dict,
             # the posterior can be skewed while large counties are partly counted.
             "margin_percentiles": [
                 round(float(v), 2) for v in
-                np.percentile(sim["margins"], np.arange(1, 100, 1.65))
+                np.percentile(sim["margins"], np.arange(0.5, 100, 0.5))
             ],
             # Each candidate's OWN simulated statewide vote-share range, not
             # just the Hong-vs-Crowley margin -- e.g. Other's range is wide
